@@ -1,0 +1,72 @@
+version: "3.7"
+
+services:
+  bootstrap-service-discovery:
+    image: etcd:latest
+    command: ["--bootstrap"]
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+    environment:
+      ETCD_UUID: DE285C23-5C23-40AC-A3CD-BE6906C2CC4B
+      ETCD_CLUSTER_SIZE: 2
+    volumes:
+      - /data
+    networks:
+      sd_backend:
+        aliases:
+          - sd_backend.bootstrap-service-discovery
+
+  service-discovery:
+    image: etcd:latest
+    command: ["--start"]
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: any
+        delay: 10s
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+    environment:
+      ETCD_UUID: DE285C23-5C23-40AC-A3CD-BE6906C2CC4B
+      ETCD_DISCOVERY_NODE: sd_backend.bootstrap-service-discovery
+    volumes:
+      - /data
+    networks:
+      sd_backend:
+        aliases:
+          - sd_backend.service-discovery
+      sd_frontend:
+        aliases:
+          - sd_frontend.service-discovery
+
+
+volumes:
+  data:
+
+
+networks:
+  sd_backend:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.1.0/24
+  sd_frontend:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.2.0/24
